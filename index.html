@@ -381,6 +381,22 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ALL GITHUB REPOSITORIES (loaded live from the GitHub API) -->
+            <div class="pt-6 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div>
+                        <h3 class="text-xl font-bold text-white tracking-tight">All GitHub Repositories</h3>
+                        <p class="text-slate-400 text-sm mt-1">Pulled live from <span class="font-mono text-slate-300">github.com/s-m-monika</span>, so new repos show up automatically.</p>
+                    </div>
+                    <span id="repo-count" class="text-xs font-mono text-slate-500"></span>
+                </div>
+                <div id="repos-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-live="polite">
+                    <p id="repos-loading" class="text-sm text-slate-400 font-mono col-span-full">
+                        <i class="fa-solid fa-spinner fa-spin mr-2"></i>Loading repositories...
+                    </p>
+                </div>
+            </div>
         </section>
 
         <section id="tech-stack" class="space-y-6 scroll-mt-24">
@@ -460,7 +476,7 @@
                 <div>
                     <h2 class="text-2xl font-bold text-white tracking-tight">Direct Contact & Messages</h2>
                     <p class="text-slate-400 text-sm mt-1">
-                        Open to internships, projects and collaborations. Email me directly and I'll get back to you.
+                        Fill out the form below and the message goes straight to my inbox, or email me directly.
                     </p>
                     <a id="contact-email" href="mailto:monikasmmonikasm3@gmail.com"
                        class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-indigo-500/60 text-indigo-300 hover:text-indigo-200 font-mono text-sm transition-colors break-all">
@@ -468,6 +484,53 @@
                         <span>monikasmmonikasm3@gmail.com</span>
                     </a>
                 </div>
+
+                <!-- Contact form: FormSubmit forwards submissions to the inbox (no keys needed) -->
+                <form id="contact-form" action="https://formsubmit.co/monikasmmonikasm3@gmail.com" method="POST" class="space-y-4 max-w-2xl">
+                    <!-- FormSubmit options -->
+                    <input type="hidden" name="_template" value="table">
+                    <input type="hidden" name="_next" id="form-next" value="">
+                    <!-- Honeypot: bots fill this, humans never see it -->
+                    <input type="text" name="_honey" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-xs font-mono text-slate-300" for="from_name">Your Name *</label>
+                            <input type="text" id="from_name" name="name" required 
+                                   placeholder="Jane Doe" 
+                                   class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-mono text-slate-300" for="reply_to">Your Email *</label>
+                            <input type="email" id="reply_to" name="email" required 
+                                   placeholder="jane@example.com" 
+                                   class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+                        </div>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-mono text-slate-300" for="subject">Subject</label>
+                        <input type="text" id="subject" name="_subject" 
+                               placeholder="Project Collaboration / Internship Role" 
+                               class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-mono text-slate-300" for="message">Message *</label>
+                        <textarea id="message" name="message" rows="4" required 
+                                  placeholder="Write your message here..." 
+                                  class="w-full px-3.5 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors resize-none"></textarea>
+                    </div>
+
+                    <!-- Status Indicator -->
+                    <div id="form-status" class="hidden text-xs font-mono p-3 rounded-lg"></div>
+
+                    <button type="submit" id="submit-btn" 
+                            class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all shadow-md">
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                        <span id="btn-text">Send Message</span>
+                    </button>
+                </form>
 
                 <div class="border-t border-slate-800/80 pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <a href="https://github.com/s-m-monika/" target="_blank" rel="noopener noreferrer" 
@@ -518,6 +581,48 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('current-year').textContent = new Date().getFullYear();
 
+            // Opened as a local file? Jump to the local web server if it's running,
+            // because FormSubmit only works on pages served over http(s).
+            const LOCAL_URL = 'http://127.0.0.1:5500/index.html';
+            if (location.protocol === 'file:') {
+                fetch(LOCAL_URL, { mode: 'no-cors', cache: 'no-store' })
+                    .then(() => location.replace(LOCAL_URL + location.hash))
+                    .catch(() => { /* server not running; submit handler shows guidance */ });
+            }
+
+            // ===== Contact form: plain HTML POST to FormSubmit =====
+            const contactForm = document.getElementById('contact-form');
+            const btnText = document.getElementById('btn-text');
+            const formStatus = document.getElementById('form-status');
+            const nextInput = document.getElementById('form-next');
+
+            const showStatus = (ok, html) => {
+                formStatus.className = 'text-xs font-mono p-3 rounded-lg border ' + (ok
+                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
+                    : 'bg-amber-950/80 text-amber-300 border-amber-700/60');
+                formStatus.innerHTML = html;
+            };
+
+            if (contactForm) {
+                // After sending, FormSubmit redirects back here with ?sent=1
+                if (nextInput && location.protocol.startsWith('http')) {
+                    nextInput.value = location.origin + location.pathname + '?sent=1#contact';
+                }
+                if (new URLSearchParams(location.search).get('sent') === '1') {
+                    showStatus(true, '<i class="fa-solid fa-circle-check mr-1.5"></i> Message sent. I will get back to you shortly.');
+                }
+
+                contactForm.addEventListener('submit', (e) => {
+                    // FormSubmit rejects pages opened as local files (file:///)
+                    if (location.protocol === 'file:') {
+                        e.preventDefault();
+                        showStatus(false, '<i class="fa-solid fa-triangle-exclamation mr-1.5"></i> Local file detected. Open the live site to send a message, or run <code>python -m http.server 5500</code> in the project folder.');
+                        return;
+                    }
+                    btnText.textContent = 'Sending...';
+                });
+            }
+
             // Mobile Menu Toggle
             const menuBtn = document.getElementById('mobile-menu-btn');
             const mobileMenu = document.getElementById('mobile-menu');
@@ -526,9 +631,90 @@
                 mobileMenu.querySelectorAll('a').forEach(link => link.addEventListener('click', () => mobileMenu.classList.add('hidden')));
             }
 
-            // Project Filtering
+            // ===== All GitHub repositories (live from GitHub API) =====
+            const GITHUB_USER = 's-m-monika';
+            const SKIP_REPOS = ['portfolio'];   // repos to hide (this site itself)
+            const reposGrid = document.getElementById('repos-grid');
+            const repoCount = document.getElementById('repo-count');
+
+            const escapeHtml = (s) => String(s || '').replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+            // Auto-tag repos so the existing filter buttons work on them too
+            const categorize = (repo) => {
+                const text = `${repo.name} ${repo.description || ''} ${(repo.topics || []).join(' ')}`.toLowerCase();
+                const cats = [];
+                if (/\bai\b|agent|gemini|llm|ml\b|vision|video|copilot|intelligen|forecast/.test(text)) cats.push('ai');
+                if (/web|website|app|platform|api|backend|frontend|dashboard|react|node|store|hospital|healthcare/.test(text)
+                    || ['JavaScript', 'TypeScript', 'HTML', 'CSS'].includes(repo.language)) cats.push('fullstack');
+                if (/fraud|security|privacy|verification|identity|crime|risk|analytic|insight/.test(text)) cats.push('security');
+                return cats.length ? cats : ['fullstack'];
+            };
+
+            const prettyName = (name) => name.replace(/[-_]+/g, ' ').trim();
+
+            const repoCard = (repo) => `
+                <div class="project-card bg-surface border border-slate-800 rounded-xl p-5 hover:border-indigo-500/50 transition-all flex flex-col justify-between group" data-category="${categorize(repo).join(' ')}">
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="text-xs font-mono text-slate-300 bg-slate-800/80 border border-slate-700/60 px-2 py-0.5 rounded">
+                                ${escapeHtml(repo.language || 'Repository')}
+                            </span>
+                            <a href="${escapeHtml(repo.html_url)}" target="_blank" rel="noopener noreferrer"
+                               class="text-slate-400 hover:text-white transition-colors" aria-label="Open ${escapeHtml(repo.name)} on GitHub">
+                                <i class="fa-brands fa-github text-lg"></i>
+                            </a>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-100 group-hover:text-indigo-400 transition-colors break-words">
+                            ${escapeHtml(prettyName(repo.name))}
+                        </h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            ${escapeHtml((repo.description || 'No description yet.').replace(/\*\*/g, ''))}
+                        </p>
+                    </div>
+                    <div class="pt-6 flex items-center justify-between gap-2">
+                        <a href="${escapeHtml(repo.html_url)}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300">
+                            <span>Repository Link</span>
+                            <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </a>
+                        <span class="text-[11px] font-mono text-slate-500">
+                            <i class="fa-regular fa-star"></i> ${repo.stargazers_count}
+                        </span>
+                    </div>
+                </div>`;
+
+            const loadRepos = async () => {
+                if (!reposGrid) return;
+                try {
+                    const res = await fetch(`https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&sort=updated`);
+                    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+                    const repos = (await res.json())
+                        .filter(r => !r.fork && !SKIP_REPOS.includes(r.name.toLowerCase()));
+                    reposGrid.innerHTML = repos.map(repoCard).join('');
+                    if (repoCount) repoCount.textContent = `${repos.length} repositories`;
+                } catch (err) {
+                    console.error('Could not load repositories:', err);
+                    reposGrid.innerHTML = `
+                        <p class="text-sm text-slate-400 col-span-full">
+                            Couldn't load the repo list right now.
+                            <a href="https://github.com/${GITHUB_USER}?tab=repositories" target="_blank" rel="noopener noreferrer"
+                               class="text-indigo-400 hover:text-indigo-300 font-semibold">View all repositories on GitHub</a>.
+                        </p>`;
+                }
+                applyFilter(currentFilter);
+            };
+
+            // Project Filtering (applies to featured cards and live repo cards)
             const filterButtons = document.querySelectorAll('#project-filters .filter-btn');
-            const projectCards = document.querySelectorAll('#projects-grid .project-card');
+            let currentFilter = 'all';
+            const applyFilter = (filter) => {
+                currentFilter = filter;
+                document.querySelectorAll('#projects .project-card').forEach(card => {
+                    const cats = (card.getAttribute('data-category') || '').split(' ');
+                    card.style.display = (filter === 'all' || cats.includes(filter)) ? 'flex' : 'none';
+                });
+            };
 
             filterButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -539,16 +725,11 @@
                     btn.classList.add('active', 'bg-indigo-600', 'text-white');
                     btn.classList.remove('bg-slate-800', 'text-slate-400');
 
-                    const filter = btn.getAttribute('data-filter');
-                    projectCards.forEach(card => {
-                        if (filter === 'all' || card.getAttribute('data-category').split(' ').includes(filter)) {
-                            card.style.display = 'flex';
-                        } else {
-                            card.style.display = 'none';
-                        }
-                    });
+                    applyFilter(btn.getAttribute('data-filter'));
                 });
             });
+
+            loadRepos();
 
             // Hackathon Victory Photo Tool
             const photoInput = document.getElementById('hackathon-photo-input');
